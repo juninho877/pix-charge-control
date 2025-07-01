@@ -1,33 +1,78 @@
 
 <?php
-// Simulação de dados para o dashboard - remover require das classes problemáticas
+$database = new Database();
+$conn = $database->getConnection();
+$user_id = $_SESSION['user_id'];
+
+// Buscar estatísticas reais
 $stats_data = [
-    'total_clients' => 25,
-    'active_clients' => 18,
-    'revenue_this_month' => 15750.00,
-    'pending_charges' => 7
+    'total_clients' => 0,
+    'active_clients' => 0,
+    'revenue_this_month' => 0,
+    'pending_charges' => 0
 ];
 
-$clients_data = [
-    [
-        'id' => 1,
-        'name' => 'João Silva',
-        'phone' => '(11) 99999-9999',
-        'valor_cobranca' => 150.00,
-        'data_vencimento' => '2024-01-15',
-        'status' => 'pendente'
-    ],
-    [
-        'id' => 2,
-        'name' => 'Maria Santos',
-        'phone' => '(11) 88888-8888',
-        'valor_cobranca' => 200.00,
-        'data_vencimento' => '2024-01-10',
-        'status' => 'pago'
-    ]
-];
+try {
+    // Total de clientes
+    $query = "SELECT COUNT(*) as total FROM clients WHERE user_id = ?";
+    $stmt = $conn->prepare($query);
+    $stmt->execute([$user_id]);
+    $stats_data['total_clients'] = $stmt->fetchColumn();
+    
+    // Clientes ativos (com status diferente de inativo)
+    $query = "SELECT COUNT(*) as active FROM clients WHERE user_id = ? AND status != 'inativo'";
+    $stmt = $conn->prepare($query);
+    $stmt->execute([$user_id]);
+    $stats_data['active_clients'] = $stmt->fetchColumn();
+    
+    // Receita do mês atual
+    $query = "SELECT COALESCE(SUM(valor_cobranca), 0) as revenue FROM clients WHERE user_id = ? AND status = 'pago' AND MONTH(updated_at) = MONTH(CURRENT_DATE()) AND YEAR(updated_at) = YEAR(CURRENT_DATE())";
+    $stmt = $conn->prepare($query);
+    $stmt->execute([$user_id]);
+    $stats_data['revenue_this_month'] = $stmt->fetchColumn();
+    
+    // Cobranças pendentes
+    $query = "SELECT COUNT(*) as pending FROM clients WHERE user_id = ? AND status = 'pendente'";
+    $stmt = $conn->prepare($query);
+    $stmt->execute([$user_id]);
+    $stats_data['pending_charges'] = $stmt->fetchColumn();
+    
+} catch (Exception $e) {
+    // Manter valores padrão se houver erro
+}
 
-$mp_configured = true;
+// Buscar clientes recentes
+$clients_data = [];
+try {
+    $query = "SELECT * FROM clients WHERE user_id = ? ORDER BY created_at DESC LIMIT 5";
+    $stmt = $conn->prepare($query);
+    $stmt->execute([$user_id]);
+    $clients_data = $stmt->fetchAll();
+} catch (Exception $e) {
+    // Array vazio se houver erro
+}
+
+// Verificar se Mercado Pago está configurado
+$mp_configured = false;
+try {
+    $query = "SELECT access_token FROM mercadopago_settings WHERE user_id = ? AND access_token IS NOT NULL AND access_token != ''";
+    $stmt = $conn->prepare($query);
+    $stmt->execute([$user_id]);
+    $mp_configured = $stmt->fetchColumn() ? true : false;
+} catch (Exception $e) {
+    // Falso se houver erro
+}
+
+// Verificar se WhatsApp está configurado
+$wa_configured = false;
+try {
+    $query = "SELECT api_key FROM whatsapp_settings WHERE user_id = ? AND api_key IS NOT NULL AND api_key != ''";
+    $stmt = $conn->prepare($query);
+    $stmt->execute([$user_id]);
+    $wa_configured = $stmt->fetchColumn() ? true : false;
+} catch (Exception $e) {
+    // Falso se houver erro
+}
 ?>
 
 <div class="row">
@@ -134,7 +179,9 @@ $mp_configured = true;
                             <i class="bi bi-whatsapp text-success"></i>
                             <span class="ms-2">WhatsApp</span>
                         </div>
-                        <span class="badge bg-warning">Pendente</span>
+                        <span class="badge <?php echo $wa_configured ? 'bg-success' : 'bg-warning'; ?>">
+                            <?php echo $wa_configured ? 'Conectado' : 'Pendente'; ?>
+                        </span>
                     </div>
                     <div class="list-group-item d-flex justify-content-between align-items-center">
                         <div>

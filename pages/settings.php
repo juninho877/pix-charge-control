@@ -1,10 +1,41 @@
 
 <?php
-require_once 'classes/MercadoPago.php';
+// Remover dependência problemática e usar dados do banco
+$database = new Database();
+$conn = $database->getConnection();
 
-$mercadoPago = new MercadoPago();
-$mp_settings = $mercadoPago->getSettings($_SESSION['user_id']);
-$mp_data = $mp_settings['success'] ? $mp_settings['settings'] : null;
+// Buscar configurações do Mercado Pago
+$mp_data = null;
+try {
+    $query = "SELECT * FROM mercadopago_settings WHERE user_id = ?";
+    $stmt = $conn->prepare($query);
+    $stmt->execute([$_SESSION['user_id']]);
+    $mp_data = $stmt->fetch();
+} catch (Exception $e) {
+    // Silenciar erro se tabela não existir
+}
+
+// Buscar configurações do WhatsApp
+$wa_data = null;
+try {
+    $query = "SELECT * FROM whatsapp_settings WHERE user_id = ?";
+    $stmt = $conn->prepare($query);
+    $stmt->execute([$_SESSION['user_id']]);
+    $wa_data = $stmt->fetch();
+} catch (Exception $e) {
+    // Silenciar erro se tabela não existir
+}
+
+// Buscar configurações do usuário
+$user_settings = null;
+try {
+    $query = "SELECT * FROM user_settings WHERE user_id = ?";
+    $stmt = $conn->prepare($query);
+    $stmt->execute([$_SESSION['user_id']]);
+    $user_settings = $stmt->fetch();
+} catch (Exception $e) {
+    // Silenciar erro se tabela não existir
+}
 ?>
 
 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
@@ -78,19 +109,19 @@ $mp_data = $mp_settings['success'] ? $mp_settings['settings'] : null;
                     <div class="mb-3">
                         <label for="wa_instance_name" class="form-label">Nome da Instância *</label>
                         <input type="text" class="form-control" id="wa_instance_name" name="instance_name" 
-                               placeholder="ex: minha-empresa" required>
+                               placeholder="ex: minha-empresa" value="<?php echo $wa_data['instance_name'] ?? ''; ?>" required>
                     </div>
                     
                     <div class="mb-3">
                         <label for="wa_api_key" class="form-label">API Key *</label>
                         <input type="password" class="form-control" id="wa_api_key" name="api_key" 
-                               placeholder="Sua API Key da Evolution" required>
+                               placeholder="Sua API Key da Evolution" value="<?php echo $wa_data['api_key'] ?? ''; ?>" required>
                     </div>
                     
                     <div class="mb-3">
                         <label for="wa_base_url" class="form-label">URL Base</label>
                         <input type="url" class="form-control" id="wa_base_url" name="base_url" 
-                               value="https://evov2.duckdns.org/" placeholder="https://evov2.duckdns.org/">
+                               value="<?php echo $wa_data['base_url'] ?? 'https://evov2.duckdns.org/'; ?>">
                     </div>
                     
                     <div class="d-grid gap-2">
@@ -127,7 +158,8 @@ $mp_data = $mp_settings['success'] ? $mp_settings['settings'] : null;
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <div class="form-check form-switch">
-                                    <input class="form-check-input" type="checkbox" id="auto_cobranca" name="auto_cobranca" checked>
+                                    <input class="form-check-input" type="checkbox" id="auto_cobranca" name="auto_cobranca" 
+                                           <?php echo ($user_settings['auto_cobranca'] ?? 1) ? 'checked' : ''; ?>>
                                     <label class="form-check-label" for="auto_cobranca">
                                         Ativar cobrança automática
                                     </label>
@@ -137,11 +169,11 @@ $mp_data = $mp_settings['success'] ? $mp_settings['settings'] : null;
                             <div class="mb-3">
                                 <label for="dias_antecedencia" class="form-label">Dias de antecedência</label>
                                 <select class="form-select" id="dias_antecedencia" name="dias_antecedencia">
-                                    <option value="1">1 dia</option>
-                                    <option value="2">2 dias</option>
-                                    <option value="3" selected>3 dias</option>
-                                    <option value="5">5 dias</option>
-                                    <option value="7">7 dias</option>
+                                    <option value="1" <?php echo ($user_settings['dias_antecedencia'] ?? 3) == 1 ? 'selected' : ''; ?>>1 dia</option>
+                                    <option value="2" <?php echo ($user_settings['dias_antecedencia'] ?? 3) == 2 ? 'selected' : ''; ?>>2 dias</option>
+                                    <option value="3" <?php echo ($user_settings['dias_antecedencia'] ?? 3) == 3 ? 'selected' : ''; ?>>3 dias</option>
+                                    <option value="5" <?php echo ($user_settings['dias_antecedencia'] ?? 3) == 5 ? 'selected' : ''; ?>>5 dias</option>
+                                    <option value="7" <?php echo ($user_settings['dias_antecedencia'] ?? 3) == 7 ? 'selected' : ''; ?>>7 dias</option>
                                 </select>
                             </div>
                         </div>
@@ -149,7 +181,8 @@ $mp_data = $mp_settings['success'] ? $mp_settings['settings'] : null;
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <div class="form-check form-switch">
-                                    <input class="form-check-input" type="checkbox" id="notification_email" name="notification_email" checked>
+                                    <input class="form-check-input" type="checkbox" id="notification_email" name="notification_email" 
+                                           <?php echo ($user_settings['notification_email'] ?? 1) ? 'checked' : ''; ?>>
                                     <label class="form-check-label" for="notification_email">
                                         Notificações por email
                                     </label>
@@ -158,7 +191,8 @@ $mp_data = $mp_settings['success'] ? $mp_settings['settings'] : null;
                             
                             <div class="mb-3">
                                 <div class="form-check form-switch">
-                                    <input class="form-check-input" type="checkbox" id="notification_whatsapp" name="notification_whatsapp" checked>
+                                    <input class="form-check-input" type="checkbox" id="notification_whatsapp" name="notification_whatsapp" 
+                                           <?php echo ($user_settings['notification_whatsapp'] ?? 1) ? 'checked' : ''; ?>>
                                     <label class="form-check-label" for="notification_whatsapp">
                                         Notificações por WhatsApp
                                     </label>
@@ -170,7 +204,7 @@ $mp_data = $mp_settings['success'] ? $mp_settings['settings'] : null;
                     <div class="mb-3">
                         <label for="message_template" class="form-label">Modelo de Mensagem</label>
                         <textarea class="form-control" id="message_template" name="message_template" rows="4" 
-                                  placeholder="Olá {nome}, sua cobrança de R$ {valor} vence em {dias} dias. Acesse: {link}">Olá {nome}, sua cobrança de R$ {valor} vence em {dias} dias. Acesse: {link}</textarea>
+                                  placeholder="Olá {nome}, sua cobrança de R$ {valor} vence em {dias} dias. Acesse: {link}"><?php echo $user_settings['message_template'] ?? 'Olá {nome}, sua cobrança de R$ {valor} vence em {dias} dias. Acesse: {link}'; ?></textarea>
                         <div class="form-text">
                             Use as variáveis: {nome}, {valor}, {dias}, {link}, {vencimento}
                         </div>
@@ -199,7 +233,7 @@ $mp_data = $mp_settings['success'] ? $mp_settings['settings'] : null;
                     <div class="mb-3">
                         <div class="form-check form-switch">
                             <input class="form-check-input" type="checkbox" id="dark_mode" name="dark_mode" 
-                                   <?php echo $user['dark_mode'] ? 'checked' : ''; ?>>
+                                   <?php echo ($user_settings['dark_mode'] ?? 0) ? 'checked' : ''; ?>>
                             <label class="form-check-label" for="dark_mode">
                                 Modo escuro
                             </label>
@@ -209,9 +243,9 @@ $mp_data = $mp_settings['success'] ? $mp_settings['settings'] : null;
                     <div class="mb-3">
                         <label for="timezone" class="form-label">Fuso horário</label>
                         <select class="form-select" id="timezone" name="timezone">
-                            <option value="America/Sao_Paulo">São Paulo (UTC-3)</option>
-                            <option value="America/Manaus">Manaus (UTC-4)</option>
-                            <option value="America/Rio_Branco">Rio Branco (UTC-5)</option>
+                            <option value="America/Sao_Paulo" <?php echo ($user_settings['timezone'] ?? 'America/Sao_Paulo') == 'America/Sao_Paulo' ? 'selected' : ''; ?>>São Paulo (UTC-3)</option>
+                            <option value="America/Manaus" <?php echo ($user_settings['timezone'] ?? 'America/Sao_Paulo') == 'America/Manaus' ? 'selected' : ''; ?>>Manaus (UTC-4)</option>
+                            <option value="America/Rio_Branco" <?php echo ($user_settings['timezone'] ?? 'America/Sao_Paulo') == 'America/Rio_Branco' ? 'selected' : ''; ?>>Rio Branco (UTC-5)</option>
                         </select>
                     </div>
                     
@@ -240,9 +274,9 @@ document.getElementById('mercadoPagoForm').addEventListener('submit', function(e
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            showAlert('Configurações do Mercado Pago salvas com sucesso!', 'success');
+            showNotification('Configurações do Mercado Pago salvas com sucesso!', 'success');
         } else {
-            showAlert('Erro ao salvar configurações: ' + data.message, 'danger');
+            showNotification('Erro ao salvar configurações: ' + data.message, 'danger');
         }
     });
 });
@@ -262,9 +296,61 @@ document.getElementById('whatsappForm').addEventListener('submit', function(e) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            showAlert('Configurações do WhatsApp salvas com sucesso!', 'success');
+            showNotification('Configurações do WhatsApp salvas com sucesso!', 'success');
         } else {
-            showAlert('Erro ao salvar configurações: ' + data.message, 'danger');
+            showNotification('Erro ao salvar configurações: ' + data.message, 'danger');
+        }
+    });
+});
+
+// Formulário Automação
+document.getElementById('automationForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+    const data = Object.fromEntries(formData);
+    data.action = 'save_automation';
+    
+    fetch('api/settings.php', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification('Configurações de automação salvas com sucesso!', 'success');
+        } else {
+            showNotification('Erro ao salvar configurações: ' + data.message, 'danger');
+        }
+    });
+});
+
+// Formulário Preferências
+document.getElementById('preferencesForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+    const data = Object.fromEntries(formData);
+    data.action = 'save_preferences';
+    
+    fetch('api/settings.php', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification('Preferências salvas com sucesso!', 'success');
+            if (data.dark_mode !== undefined) {
+                // Atualizar modo escuro em tempo real
+                if (data.dark_mode) {
+                    document.body.setAttribute('data-bs-theme', 'dark');
+                } else {
+                    document.body.removeAttribute('data-bs-theme');
+                }
+            }
+        } else {
+            showNotification('Erro ao salvar preferências: ' + data.message, 'danger');
         }
     });
 });
@@ -278,24 +364,8 @@ function generateQRCode() {
                 document.getElementById('qrCodeImage').src = data.qr_code;
                 document.getElementById('qrCodeContainer').style.display = 'block';
             } else {
-                showAlert('Erro ao gerar QR Code: ' + data.message, 'danger');
+                showNotification('Erro ao gerar QR Code: ' + data.message, 'danger');
             }
         });
-}
-
-// Função para mostrar alertas
-function showAlert(message, type) {
-    const alertDiv = document.createElement('div');
-    alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
-    alertDiv.innerHTML = `
-        ${message}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    `;
-    
-    document.body.insertBefore(alertDiv, document.body.firstChild);
-    
-    setTimeout(() => {
-        alertDiv.remove();
-    }, 5000);
 }
 </script>

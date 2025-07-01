@@ -1,24 +1,67 @@
 
 <?php
-require_once 'classes/ClientManager.php';
-
-$clientManager = new ClientManager();
+$database = new Database();
+$conn = $database->getConnection();
+$user_id = $_SESSION['user_id'];
 
 // Filtros
 $search = $_GET['search'] ?? '';
 $status = $_GET['status'] ?? '';
-$page = $_GET['page'] ?? 1;
+$page = intval($_GET['page'] ?? 1);
+$per_page = 10;
+$offset = ($page - 1) * $per_page;
 
-$filters = [
-    'search' => $search,
-    'status' => $status,
+// Construir query com filtros
+$where_conditions = ['user_id = ?'];
+$params = [$user_id];
+
+if (!empty($search)) {
+    $where_conditions[] = '(name LIKE ? OR email LIKE ? OR phone LIKE ?)';
+    $search_param = '%' . $search . '%';
+    $params[] = $search_param;
+    $params[] = $search_param;
+    $params[] = $search_param;
+}
+
+if (!empty($status)) {
+    $where_conditions[] = 'status = ?';
+    $params[] = $status;
+}
+
+$where_clause = 'WHERE ' . implode(' AND ', $where_conditions);
+
+// Buscar clientes
+$clients = [];
+$total_clients = 0;
+
+try {
+    // Contar total de registros
+    $count_query = "SELECT COUNT(*) FROM clients " . $where_clause;
+    $stmt = $conn->prepare($count_query);
+    $stmt->execute($params);
+    $total_clients = $stmt->fetchColumn();
+    
+    // Buscar clientes com paginação
+    $query = "SELECT * FROM clients " . $where_clause . " ORDER BY created_at DESC LIMIT ? OFFSET ?";
+    $params[] = $per_page;
+    $params[] = $offset;
+    $stmt = $conn->prepare($query);
+    $stmt->execute($params);
+    $clients = $stmt->fetchAll();
+    
+} catch (Exception $e) {
+    // Array vazio se houver erro
+    $clients = [];
+}
+
+// Calcular paginação
+$total_pages = ceil($total_clients / $per_page);
+$pagination = [
     'page' => $page,
-    'per_page' => 10
+    'pages' => $total_pages,
+    'total' => $total_clients,
+    'per_page' => $per_page
 ];
-
-$result = $clientManager->getClients($_SESSION['user_id'], $filters);
-$clients = $result['success'] ? $result['clients'] : [];
-$pagination = $result['pagination'] ?? null;
 ?>
 
 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
@@ -143,7 +186,7 @@ $pagination = $result['pagination'] ?? null;
                                             title="Gerar Pagamento">
                                         <i class="bi bi-qr-code"></i>
                                     </button>
-                                    <button class="btn btn-outline-info" onclick="sendWhatsApp(<?php echo $client['id']; ?>)" 
+                                    <button class="btn btn-outline-info" onclick="sendWhatsApp('<?php echo $client['phone']; ?>', '<?php echo $client['name']; ?>')" 
                                             title="Enviar WhatsApp">
                                         <i class="bi bi-whatsapp"></i>
                                     </button>
@@ -160,7 +203,7 @@ $pagination = $result['pagination'] ?? null;
             </div>
 
             <!-- Paginação -->
-            <?php if ($pagination && $pagination['pages'] > 1): ?>
+            <?php if ($pagination['pages'] > 1): ?>
             <nav aria-label="Paginação">
                 <ul class="pagination justify-content-center">
                     <?php for ($i = 1; $i <= $pagination['pages']; $i++): ?>
@@ -277,7 +320,12 @@ function editClient(clientId) {
                 document.getElementById('edit_client_due_date').value = client.data_vencimento;
                 
                 new bootstrap.Modal(document.getElementById('editClientModal')).show();
+            } else {
+                showNotification('Erro ao carregar dados do cliente: ' + data.message, 'danger');
             }
+        })
+        .catch(error => {
+            showNotification('Erro de conexão: ' + error.message, 'danger');
         });
 }
 
@@ -291,22 +339,28 @@ function deleteClient(clientId) {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                location.reload();
+                showNotification('Cliente excluído com sucesso!', 'success');
+                setTimeout(() => location.reload(), 1000);
             } else {
-                alert('Erro ao excluir cliente: ' + data.message);
+                showNotification('Erro ao excluir cliente: ' + data.message, 'danger');
             }
+        })
+        .catch(error => {
+            showNotification('Erro de conexão: ' + error.message, 'danger');
         });
     }
 }
 
 function generatePayment(clientId) {
-    // Implementar geração de pagamento
-    console.log('Gerar pagamento para cliente:', clientId);
+    showNotification('Funcionalidade de pagamento em desenvolvimento', 'info');
 }
 
-function sendWhatsApp(clientId) {
-    // Implementar envio de WhatsApp
-    console.log('Enviar WhatsApp para cliente:', clientId);
+function sendWhatsApp(phone, name) {
+    const cleanPhone = phone.replace(/\D/g, '');
+    const formattedPhone = cleanPhone.startsWith('55') ? cleanPhone : '55' + cleanPhone;
+    const message = `Olá ${name}, como posso ajudá-lo?`;
+    const url = `https://wa.me/${formattedPhone}?text=${encodeURIComponent(message)}`;
+    window.open(url, '_blank');
 }
 
 // Formulários
@@ -324,10 +378,14 @@ document.getElementById('addClientForm').addEventListener('submit', function(e) 
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            location.reload();
+            showNotification('Cliente criado com sucesso!', 'success');
+            setTimeout(() => location.reload(), 1000);
         } else {
-            alert('Erro ao criar cliente: ' + data.message);
+            showNotification('Erro ao criar cliente: ' + data.message, 'danger');
         }
+    })
+    .catch(error => {
+        showNotification('Erro de conexão: ' + error.message, 'danger');
     });
 });
 
@@ -345,10 +403,14 @@ document.getElementById('editClientForm').addEventListener('submit', function(e)
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            location.reload();
+            showNotification('Cliente atualizado com sucesso!', 'success');
+            setTimeout(() => location.reload(), 1000);
         } else {
-            alert('Erro ao atualizar cliente: ' + data.message);
+            showNotification('Erro ao atualizar cliente: ' + data.message, 'danger');
         }
+    })
+    .catch(error => {
+        showNotification('Erro de conexão: ' + error.message, 'danger');
     });
 });
 </script>

@@ -1,15 +1,27 @@
 
 <?php
 require_once 'config/config.php';
-require_once 'classes/Auth.php';
+require_once 'config/database.php';
 
 // Verificar se usuário está logado
 if (!isLoggedIn()) {
     redirect('login.php');
 }
 
-$auth = new Auth();
-$user = $auth->getCurrentUser();
+// Buscar dados do usuário
+$database = new Database();
+$conn = $database->getConnection();
+$user = null;
+
+try {
+    $query = "SELECT u.*, us.dark_mode FROM users u LEFT JOIN user_settings us ON u.id = us.user_id WHERE u.id = ?";
+    $stmt = $conn->prepare($query);
+    $stmt->execute([$_SESSION['user_id']]);
+    $user = $stmt->fetch();
+} catch (Exception $e) {
+    // Se houver erro, manter valores padrão
+    $user = ['name' => 'Usuário', 'dark_mode' => 0];
+}
 ?>
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -25,7 +37,7 @@ $user = $auth->getCurrentUser();
     <!-- Custom CSS -->
     <link href="assets/css/style.css" rel="stylesheet">
 </head>
-<body <?php echo $user['dark_mode'] ? 'data-bs-theme="dark"' : ''; ?>>
+<body <?php echo ($user['dark_mode'] ?? 0) ? 'data-bs-theme="dark"' : ''; ?>>
     
     <!-- Navbar -->
     <?php include 'includes/navbar.php'; ?>
