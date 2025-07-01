@@ -3,7 +3,7 @@
 // Configurações gerais do sistema
 define('APP_NAME', 'SaaS Gestão de Clientes');
 define('APP_VERSION', '1.0.0');
-define('BASE_URL', 'http://localhost/saas-clientes/');
+define('BASE_URL', 'https://apiteste.streamingplay.site/saas-clientes/');
 define('UPLOAD_PATH', 'uploads/');
 
 // Configurações de segurança
