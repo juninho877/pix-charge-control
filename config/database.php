@@ -2,9 +2,9 @@
 <?php
 class Database {
     private $host = 'localhost';
-    private $db_name = 'saas_clientes';
-    private $username = 'root';
-    private $password = '';
+    private $db_name = 'tesg';
+    private $username = 'tesg';
+    private $password = '?j#I4f6OnycwBv7x';
     private $charset = 'utf8mb4';
     private $conn;
 
