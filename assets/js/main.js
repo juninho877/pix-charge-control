@@ -7,6 +7,7 @@ let darkMode = localStorage.getItem('darkMode') === 'true';
 
 // Initialize the application
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('Inicializando aplicação...');
     initializeDarkMode();
     initializeNavigation();
     initializeTooltips();
@@ -59,34 +60,23 @@ function toggleDarkMode() {
 
 // Navigation Functions
 function initializeNavigation() {
-    // Add active class to current page
+    console.log('Inicializando navegação...');
     updateActiveNavigation();
-    
-    // Handle sidebar navigation
-    const sidebarLinks = document.querySelectorAll('.sidebar .nav-link');
-    sidebarLinks.forEach(link => {
-        link.addEventListener('click', function(e) {
-            e.preventDefault();
-            const page = this.getAttribute('onclick').match(/loadPage\('(.+)'\)/);
-            if (page) {
-                loadPage(page[1]);
-            }
-        });
-    });
 }
 
 function updateActiveNavigation() {
     const sidebarLinks = document.querySelectorAll('.sidebar .nav-link');
     sidebarLinks.forEach(link => {
         link.classList.remove('active');
-        const page = link.getAttribute('onclick');
-        if (page && page.includes(currentPage)) {
+        const onclick = link.getAttribute('onclick');
+        if (onclick && onclick.includes(`'${currentPage}'`)) {
             link.classList.add('active');
         }
     });
 }
 
 function loadPage(page) {
+    console.log('Carregando página:', page);
     currentPage = page;
     
     // Show loading
@@ -95,15 +85,33 @@ function loadPage(page) {
         content.innerHTML = '<div class="text-center py-5"><div class="spinner-border" role="status"><span class="visually-hidden">Carregando...</span></div></div>';
     }
     
+    // Update page title
+    const mainTitle = document.querySelector('main h1');
+    if (mainTitle) {
+        const titles = {
+            'dashboard': 'Dashboard',
+            'clients': 'Clientes',
+            'payments': 'Pagamentos',
+            'whatsapp': 'WhatsApp',
+            'automation': 'Automação',
+            'reports': 'Relatórios',
+            'settings': 'Configurações',
+            'profile': 'Perfil'
+        };
+        mainTitle.textContent = titles[page] || 'Dashboard';
+    }
+    
     // Load page content
     fetch(`pages/${page}.php`)
         .then(response => {
+            console.log('Response status:', response.status);
             if (!response.ok) {
-                throw new Error('Página não encontrada');
+                throw new Error(`HTTP ${response.status}: Página não encontrada`);
             }
             return response.text();
         })
         .then(html => {
+            console.log('Página carregada com sucesso');
             if (content) {
                 content.innerHTML = html;
                 content.classList.add('fade-in');
@@ -119,7 +127,8 @@ function loadPage(page) {
                 content.innerHTML = `
                     <div class="alert alert-danger" role="alert">
                         <i class="bi bi-exclamation-triangle"></i>
-                        Erro ao carregar a página. Tente novamente.
+                        Erro ao carregar a página "${page}". ${error.message}
+                        <br><small>Verifique se o arquivo pages/${page}.php existe.</small>
                     </div>
                 `;
             }
@@ -128,6 +137,7 @@ function loadPage(page) {
 
 // Initialize page-specific scripts
 function initializePageScripts(page) {
+    console.log('Inicializando scripts da página:', page);
     switch (page) {
         case 'dashboard':
             initializeDashboard();
@@ -152,21 +162,7 @@ function initializePageScripts(page) {
 
 // Dashboard functions
 function initializeDashboard() {
-    // Initialize charts if Chart.js is available
-    if (typeof Chart !== 'undefined') {
-        initializeCharts();
-    }
-    
-    // Auto-refresh dashboard every 5 minutes
-    setInterval(() => {
-        if (currentPage === 'dashboard') {
-            refreshDashboard();
-        }
-    }, 300000);
-}
-
-function initializeCharts() {
-    // Chart initialization is handled in dashboard.php
+    console.log('Dashboard inicializado');
 }
 
 function refreshDashboard() {
@@ -175,6 +171,7 @@ function refreshDashboard() {
 
 // Client functions
 function initializeClients() {
+    console.log('Clientes inicializado');
     // Initialize phone number formatting
     const phoneInputs = document.querySelectorAll('input[name="phone"]');
     phoneInputs.forEach(input => {
@@ -210,6 +207,7 @@ function formatPhoneNumber(e) {
 
 // Settings functions
 function initializeSettings() {
+    console.log('Configurações inicializadas');
     // Initialize form validations
     const forms = document.querySelectorAll('form');
     forms.forEach(form => {
@@ -225,17 +223,17 @@ function initializeSettings() {
 
 // Payment functions
 function initializePayments() {
-    // Initialize payment-related functionality
+    console.log('Pagamentos inicializados');
 }
 
 // WhatsApp functions
 function initializeWhatsApp() {
-    // Initialize WhatsApp-related functionality
+    console.log('WhatsApp inicializado');
 }
 
 // Reports functions
 function initializeReports() {
-    // Initialize reports-related functionality
+    console.log('Relatórios inicializados');
 }
 
 // Utility functions
@@ -264,6 +262,7 @@ function initializeModals() {
 
 // API Functions
 function saveUserPreference(key, value) {
+    console.log('Salvando preferência:', key, value);
     fetch('api/settings.php', {
         method: 'POST',
         headers: {
