@@ -72,7 +72,7 @@ function loadPage(page) {
     }
     
     // Atualizar título da página
-    const mainTitle = document.querySelector('main h1');
+    const mainTitle = document.getElementById('page-title');
     if (mainTitle) {
         const titles = {
             'dashboard': 'Dashboard',
@@ -100,7 +100,14 @@ function loadPage(page) {
                 content.innerHTML = html;
             }
             updateActiveNavigation();
-            initializePageScripts(page);
+            
+            // Executar scripts específicos da página se existirem
+            const scripts = content.querySelectorAll('script');
+            scripts.forEach(script => {
+                if (script.innerHTML) {
+                    eval(script.innerHTML);
+                }
+            });
         })
         .catch(error => {
             console.error('Erro ao carregar página:', error);
@@ -128,62 +135,6 @@ function updateActiveNavigation() {
             link.classList.add('active');
         }
     });
-}
-
-// Inicializar scripts específicos das páginas
-function initializePageScripts(page) {
-    switch (page) {
-        case 'clients':
-            initializeClients();
-            break;
-        case 'payments':
-            initializePayments();
-            break;
-        case 'whatsapp':
-            initializeWhatsApp();
-            break;
-        case 'automation':
-            initializeAutomation();
-            break;
-        case 'reports':
-            initializeReports();
-            break;
-        case 'settings':
-            initializeSettings();
-            break;
-        case 'profile':
-            initializeProfile();
-            break;
-    }
-}
-
-// Funções específicas de cada página
-function initializeClients() {
-    console.log('Clientes inicializados');
-}
-
-function initializePayments() {
-    console.log('Pagamentos inicializados');
-}
-
-function initializeWhatsApp() {
-    console.log('WhatsApp inicializado');
-}
-
-function initializeAutomation() {
-    console.log('Automação inicializada');
-}
-
-function initializeReports() {
-    console.log('Relatórios inicializados');
-}
-
-function initializeSettings() {
-    console.log('Configurações inicializadas');
-}
-
-function initializeProfile() {
-    console.log('Perfil inicializado');
 }
 
 // Funções utilitárias

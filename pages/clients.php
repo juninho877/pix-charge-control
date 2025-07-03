@@ -2,221 +2,84 @@
 <?php
 $database = new Database();
 $conn = $database->getConnection();
-$user_id = $_SESSION['user_id'];
 
-// Filtros
-$search = $_GET['search'] ?? '';
-$status = $_GET['status'] ?? '';
-$page = intval($_GET['page'] ?? 1);
-$per_page = 10;
-$offset = ($page - 1) * $per_page;
-
-// Construir query com filtros
-$where_conditions = ['user_id = ?'];
-$params = [$user_id];
-
-if (!empty($search)) {
-    $where_conditions[] = '(name LIKE ? OR email LIKE ? OR phone LIKE ?)';
-    $search_param = '%' . $search . '%';
-    $params[] = $search_param;
-    $params[] = $search_param;
-    $params[] = $search_param;
+if (!$conn) {
+    echo '<div class="alert alert-danger">Erro de conexão com o banco de dados</div>';
+    return;
 }
 
-if (!empty($status)) {
-    $where_conditions[] = 'status = ?';
-    $params[] = $status;
-}
-
-$where_clause = 'WHERE ' . implode(' AND ', $where_conditions);
+$user_id = $_SESSION['user_id'] ?? 1;
 
 // Buscar clientes
 $clients = [];
-$total_clients = 0;
-
 try {
-    // Contar total de registros
-    $count_query = "SELECT COUNT(*) FROM clients " . $where_clause;
-    $stmt = $conn->prepare($count_query);
-    $stmt->execute($params);
-    $total_clients = $stmt->fetchColumn();
-    
-    // Buscar clientes com paginação
-    $query = "SELECT * FROM clients " . $where_clause . " ORDER BY created_at DESC LIMIT ? OFFSET ?";
-    $params[] = $per_page;
-    $params[] = $offset;
+    $query = "SELECT * FROM clients WHERE user_id = ? ORDER BY created_at DESC";
     $stmt = $conn->prepare($query);
-    $stmt->execute($params);
-    $clients = $stmt->fetchAll();
-    
+    $stmt->execute([$user_id]);
+    $clients = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 } catch (Exception $e) {
-    // Array vazio se houver erro
-    $clients = [];
+    error_log("Erro ao buscar clientes: " . $e->getMessage());
 }
-
-// Calcular paginação
-$total_pages = ceil($total_clients / $per_page);
-$pagination = [
-    'page' => $page,
-    'pages' => $total_pages,
-    'total' => $total_clients,
-    'per_page' => $per_page
-];
 ?>
 
-<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-    <h1 class="h2">Gestão de Clientes</h1>
-    <div class="btn-toolbar mb-2 mb-md-0">
-        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addClientModal">
-            <i class="bi bi-plus"></i> Novo Cliente
-        </button>
-    </div>
-</div>
-
-<!-- Filtros -->
-<div class="card mb-4">
-    <div class="card-body">
-        <form class="row g-3" method="GET">
-            <div class="col-md-4">
-                <label for="search" class="form-label">Buscar</label>
-                <input type="text" class="form-control" id="search" name="search" 
-                       placeholder="Nome, email ou telefone..." value="<?php echo htmlspecialchars($search); ?>">
-            </div>
-            <div class="col-md-3">
-                <label for="status" class="form-label">Status</label>
-                <select class="form-select" id="status" name="status">
-                    <option value="">Todos</option>
-                    <option value="ativo" <?php echo $status == 'ativo' ? 'selected' : ''; ?>>Ativo</option>
-                    <option value="pendente" <?php echo $status == 'pendente' ? 'selected' : ''; ?>>Pendente</option>
-                    <option value="pago" <?php echo $status == 'pago' ? 'selected' : ''; ?>>Pago</option>
-                    <option value="vencido" <?php echo $status == 'vencido' ? 'selected' : ''; ?>>Vencido</option>
-                </select>
-            </div>
-            <div class="col-md-2">
-                <label class="form-label">&nbsp;</label>
-                <div class="d-grid">
-                    <button type="submit" class="btn btn-outline-primary">
-                        <i class="bi bi-search"></i> Filtrar
-                    </button>
-                </div>
-            </div>
-            <div class="col-md-2">
-                <label class="form-label">&nbsp;</label>
-                <div class="d-grid">
-                    <a href="?" class="btn btn-outline-secondary">
-                        <i class="bi bi-x"></i> Limpar
-                    </a>
-                </div>
-            </div>
-        </form>
-    </div>
-</div>
-
-<!-- Lista de Clientes -->
-<div class="card">
-    <div class="card-body">
-        <?php if (empty($clients)): ?>
-            <div class="text-center py-5">
-                <i class="bi bi-people fa-3x text-muted mb-3"></i>
-                <h5 class="text-muted">Nenhum cliente encontrado</h5>
-                <p class="text-muted">Adicione seu primeiro cliente para começar</p>
-                <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addClientModal">
-                    <i class="bi bi-plus"></i> Adicionar Cliente
+<div class="row">
+    <div class="col-12">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                <h6 class="m-0 font-weight-bold text-primary">Gerenciar Clientes</h6>
+                <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addClientModal">
+                    <i class="bi bi-plus"></i> Novo Cliente
                 </button>
             </div>
-        <?php else: ?>
-            <div class="table-responsive">
-                <table class="table table-hover">
-                    <thead>
-                        <tr>
-                            <th>Cliente</th>
-                            <th>Contato</th>
-                            <th>Cobrança</th>
-                            <th>Vencimento</th>
-                            <th>Status</th>
-                            <th>Ações</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($clients as $client): ?>
-                        <tr>
-                            <td>
-                                <div>
-                                    <strong><?php echo htmlspecialchars($client['name']); ?></strong>
-                                    <?php if ($client['email']): ?>
-                                        <br><small class="text-muted"><?php echo htmlspecialchars($client['email']); ?></small>
-                                    <?php endif; ?>
-                                </div>
-                            </td>
-                            <td>
-                                <a href="https://wa.me/<?php echo preg_replace('/[^0-9]/', '', $client['phone']); ?>" 
-                                   target="_blank" class="text-success text-decoration-none">
-                                    <i class="bi bi-whatsapp"></i> <?php echo htmlspecialchars($client['phone']); ?>
-                                </a>
-                            </td>
-                            <td>
-                                <strong>R$ <?php echo number_format($client['valor_cobranca'], 2, ',', '.'); ?></strong>
-                            </td>
-                            <td>
-                                <?php 
-                                $vencimento = strtotime($client['data_vencimento']);
-                                $hoje = time();
-                                $class = $vencimento < $hoje ? 'text-danger' : ($vencimento - $hoje < 86400 * 3 ? 'text-warning' : '');
-                                ?>
-                                <span class="<?php echo $class; ?>">
-                                    <?php echo date('d/m/Y', $vencimento); ?>
-                                </span>
-                            </td>
-                            <td>
-                                <span class="badge bg-<?php 
-                                    echo $client['status'] == 'pago' ? 'success' : 
-                                        ($client['status'] == 'vencido' ? 'danger' : 
-                                        ($client['status'] == 'ativo' ? 'primary' : 'warning')); 
-                                ?>">
-                                    <?php echo ucfirst($client['status']); ?>
-                                </span>
-                            </td>
-                            <td>
-                                <div class="btn-group btn-group-sm">
-                                    <button class="btn btn-outline-primary" onclick="editClient(<?php echo $client['id']; ?>)" 
-                                            title="Editar">
-                                        <i class="bi bi-pencil"></i>
-                                    </button>
-                                    <button class="btn btn-outline-success" onclick="generatePayment(<?php echo $client['id']; ?>)" 
-                                            title="Gerar Pagamento">
-                                        <i class="bi bi-qr-code"></i>
-                                    </button>
-                                    <button class="btn btn-outline-info" onclick="sendWhatsApp('<?php echo $client['phone']; ?>', '<?php echo $client['name']; ?>')" 
-                                            title="Enviar WhatsApp">
-                                        <i class="bi bi-whatsapp"></i>
-                                    </button>
-                                    <button class="btn btn-outline-danger" onclick="deleteClient(<?php echo $client['id']; ?>)" 
-                                            title="Excluir">
-                                        <i class="bi bi-trash"></i>
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
+            <div class="card-body">
+                <?php if (empty($clients)): ?>
+                    <div class="text-center py-4">
+                        <i class="bi bi-people fs-1 text-muted"></i>
+                        <p class="text-muted mt-2">Nenhum cliente cadastrado ainda.</p>
+                    </div>
+                <?php else: ?>
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Nome</th>
+                                    <th>Email</th>
+                                    <th>Telefone</th>
+                                    <th>Valor</th>
+                                    <th>Vencimento</th>
+                                    <th>Status</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($clients as $client): ?>
+                                <tr>
+                                    <td><?php echo htmlspecialchars($client['name'] ?? ''); ?></td>
+                                    <td><?php echo htmlspecialchars($client['email'] ?? ''); ?></td>
+                                    <td><?php echo htmlspecialchars($client['phone'] ?? ''); ?></td>
+                                    <td>R$ <?php echo number_format($client['valor_cobranca'] ?? 0, 2, ',', '.'); ?></td>
+                                    <td><?php echo date('d/m/Y', strtotime($client['data_vencimento'] ?? 'now')); ?></td>
+                                    <td>
+                                        <span class="badge bg-<?php echo ($client['status'] ?? '') == 'ativo' ? 'success' : 'secondary'; ?>">
+                                            <?php echo ucfirst($client['status'] ?? 'inativo'); ?>
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-sm btn-primary" onclick="editClient(<?php echo $client['id']; ?>)">
+                                            <i class="bi bi-pencil"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-danger" onclick="deleteClient(<?php echo $client['id']; ?>)">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                <?php endif; ?>
             </div>
-
-            <!-- Paginação -->
-            <?php if ($pagination['pages'] > 1): ?>
-            <nav aria-label="Paginação">
-                <ul class="pagination justify-content-center">
-                    <?php for ($i = 1; $i <= $pagination['pages']; $i++): ?>
-                    <li class="page-item <?php echo $i == $pagination['page'] ? 'active' : ''; ?>">
-                        <a class="page-link" href="?page=<?php echo $i; ?>&search=<?php echo urlencode($search); ?>&status=<?php echo urlencode($status); ?>">
-                            <?php echo $i; ?>
-                        </a>
-                    </li>
-                    <?php endfor; ?>
-                </ul>
-            </nav>
-            <?php endif; ?>
-        <?php endif; ?>
+        </div>
     </div>
 </div>
 
@@ -228,189 +91,86 @@ $pagination = [
                 <h5 class="modal-title">Novo Cliente</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <form id="addClientForm">
-                <div class="modal-body">
+            <div class="modal-body">
+                <form id="clientForm">
                     <div class="mb-3">
-                        <label for="client_name" class="form-label">Nome *</label>
-                        <input type="text" class="form-control" id="client_name" name="name" required>
+                        <label class="form-label">Nome</label>
+                        <input type="text" class="form-control" name="name" required>
                     </div>
                     <div class="mb-3">
-                        <label for="client_email" class="form-label">Email</label>
-                        <input type="email" class="form-control" id="client_email" name="email">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-control" name="email" required>
                     </div>
                     <div class="mb-3">
-                        <label for="client_phone" class="form-label">Telefone/WhatsApp *</label>
-                        <input type="text" class="form-control" id="client_phone" name="phone" required>
+                        <label class="form-label">Telefone</label>
+                        <input type="tel" class="form-control" name="phone">
                     </div>
                     <div class="mb-3">
-                        <label for="client_value" class="form-label">Valor da Cobrança *</label>
-                        <input type="number" class="form-control" id="client_value" name="valor_cobranca" 
-                               step="0.01" min="0" required>
+                        <label class="form-label">Valor da Cobrança</label>
+                        <input type="number" class="form-control" name="valor_cobranca" step="0.01" required>
                     </div>
                     <div class="mb-3">
-                        <label for="client_due_date" class="form-label">Data de Vencimento *</label>
-                        <input type="date" class="form-control" id="client_due_date" name="data_vencimento" required>
+                        <label class="form-label">Data de Vencimento</label>
+                        <input type="date" class="form-control" name="data_vencimento" required>
                     </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">Salvar Cliente</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<!-- Modal Editar Cliente -->
-<div class="modal fade" id="editClientModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Editar Cliente</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </form>
             </div>
-            <form id="editClientForm">
-                <input type="hidden" id="edit_client_id" name="client_id">
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label for="edit_client_name" class="form-label">Nome *</label>
-                        <input type="text" class="form-control" id="edit_client_name" name="name" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="edit_client_email" class="form-label">Email</label>
-                        <input type="email" class="form-control" id="edit_client_email" name="email">
-                    </div>
-                    <div class="mb-3">
-                        <label for="edit_client_phone" class="form-label">Telefone/WhatsApp *</label>
-                        <input type="text" class="form-control" id="edit_client_phone" name="phone" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="edit_client_value" class="form-label">Valor da Cobrança *</label>
-                        <input type="number" class="form-control" id="edit_client_value" name="valor_cobranca" 
-                               step="0.01" min="0" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="edit_client_due_date" class="form-label">Data de Vencimento *</label>
-                        <input type="date" class="form-control" id="edit_client_due_date" name="data_vencimento" required>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">Atualizar Cliente</button>
-                </div>
-            </form>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="saveClient()">Salvar</button>
+            </div>
         </div>
     </div>
 </div>
 
 <script>
-// Funções para gerenciar clientes
-function editClient(clientId) {
-    // Buscar dados do cliente e preencher modal
-    fetch(`api/clients.php?action=get&id=${clientId}`)
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                const client = data.client;
-                document.getElementById('edit_client_id').value = client.id;
-                document.getElementById('edit_client_name').value = client.name;
-                document.getElementById('edit_client_email').value = client.email || '';
-                document.getElementById('edit_client_phone').value = client.phone;
-                document.getElementById('edit_client_value').value = client.valor_cobranca;
-                document.getElementById('edit_client_due_date').value = client.data_vencimento;
-                
-                new bootstrap.Modal(document.getElementById('editClientModal')).show();
-            } else {
-                showNotification('Erro ao carregar dados do cliente: ' + data.message, 'danger');
-            }
-        })
-        .catch(error => {
-            showNotification('Erro de conexão: ' + error.message, 'danger');
-        });
+function saveClient() {
+    const form = document.getElementById('clientForm');
+    const formData = new FormData(form);
+    const data = Object.fromEntries(formData);
+    data.action = 'add';
+    
+    fetch('api/clients.php', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification('Cliente adicionado com sucesso!', 'success');
+            bootstrap.Modal.getInstance(document.getElementById('addClientModal')).hide();
+            loadPage('clients');
+        } else {
+            showNotification('Erro: ' + data.message, 'danger');
+        }
+    })
+    .catch(error => {
+        showNotification('Erro ao salvar cliente', 'danger');
+        console.error('Erro:', error);
+    });
 }
 
-function deleteClient(clientId) {
+function editClient(id) {
+    showNotification('Funcionalidade de edição em desenvolvimento', 'info');
+}
+
+function deleteClient(id) {
     if (confirm('Tem certeza que deseja excluir este cliente?')) {
         fetch('api/clients.php', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({action: 'delete', client_id: clientId})
+            body: JSON.stringify({action: 'delete', id: id})
         })
         .then(response => response.json())
         .then(data => {
             if (data.success) {
                 showNotification('Cliente excluído com sucesso!', 'success');
-                setTimeout(() => location.reload(), 1000);
+                loadPage('clients');
             } else {
-                showNotification('Erro ao excluir cliente: ' + data.message, 'danger');
+                showNotification('Erro: ' + data.message, 'danger');
             }
-        })
-        .catch(error => {
-            showNotification('Erro de conexão: ' + error.message, 'danger');
         });
     }
 }
-
-function generatePayment(clientId) {
-    showNotification('Funcionalidade de pagamento em desenvolvimento', 'info');
-}
-
-function sendWhatsApp(phone, name) {
-    const cleanPhone = phone.replace(/\D/g, '');
-    const formattedPhone = cleanPhone.startsWith('55') ? cleanPhone : '55' + cleanPhone;
-    const message = `Olá ${name}, como posso ajudá-lo?`;
-    const url = `https://wa.me/${formattedPhone}?text=${encodeURIComponent(message)}`;
-    window.open(url, '_blank');
-}
-
-// Formulários
-document.getElementById('addClientForm').addEventListener('submit', function(e) {
-    e.preventDefault();
-    const formData = new FormData(this);
-    const data = Object.fromEntries(formData);
-    data.action = 'create';
-    
-    fetch('api/clients.php', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(data)
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            showNotification('Cliente criado com sucesso!', 'success');
-            setTimeout(() => location.reload(), 1000);
-        } else {
-            showNotification('Erro ao criar cliente: ' + data.message, 'danger');
-        }
-    })
-    .catch(error => {
-        showNotification('Erro de conexão: ' + error.message, 'danger');
-    });
-});
-
-document.getElementById('editClientForm').addEventListener('submit', function(e) {
-    e.preventDefault();
-    const formData = new FormData(this);
-    const data = Object.fromEntries(formData);
-    data.action = 'update';
-    
-    fetch('api/clients.php', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(data)
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            showNotification('Cliente atualizado com sucesso!', 'success');
-            setTimeout(() => location.reload(), 1000);
-        } else {
-            showNotification('Erro ao atualizar cliente: ' + data.message, 'danger');
-        }
-    })
-    .catch(error => {
-        showNotification('Erro de conexão: ' + error.message, 'danger');
-    });
-});
 </script>
