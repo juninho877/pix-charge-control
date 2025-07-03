@@ -28,6 +28,11 @@ define('EVOLUTION_DEFAULT_KEY', '79Bb4lpu2TzxrSMu3SDfSGvB3MIhkur7');
 // Timezone
 date_default_timezone_set('America/Sao_Paulo');
 
+// Configurações de erro
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+ini_set('log_errors', 1);
+
 // Iniciar sessão
 if (session_status() == PHP_SESSION_NONE) {
     session_start();
@@ -35,6 +40,9 @@ if (session_status() == PHP_SESSION_NONE) {
 
 // Função para sanitizar dados
 function sanitize($data) {
+    if (is_array($data)) {
+        return array_map('sanitize', $data);
+    }
     return htmlspecialchars(strip_tags(trim($data)));
 }
 
@@ -62,8 +70,20 @@ function redirect($url) {
 // Função para retornar JSON
 function jsonResponse($data, $status_code = 200) {
     http_response_code($status_code);
-    header('Content-Type: application/json');
-    echo json_encode($data);
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode($data, JSON_UNESCAPED_UNICODE);
     exit();
+}
+
+// Função para validar CSRF token (opcional)
+function generateCSRFToken() {
+    if (!isset($_SESSION['csrf_token'])) {
+        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+    }
+    return $_SESSION['csrf_token'];
+}
+
+function validateCSRFToken($token) {
+    return isset($_SESSION['csrf_token']) && hash_equals($_SESSION['csrf_token'], $token);
 }
 ?>

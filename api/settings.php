@@ -15,11 +15,15 @@ $action = $input['action'] ?? '';
 $database = new Database();
 $conn = $database->getConnection();
 
+if (!$conn) {
+    jsonResponse(['success' => false, 'message' => 'Erro de conexão com o banco de dados']);
+}
+
 switch ($action) {
     case 'save_mercadopago':
         try {
-            $query = "INSERT INTO mercadopago_settings (user_id, access_token, valor_base, desconto_3_meses, desconto_6_meses) 
-                     VALUES (?, ?, ?, ?, ?) 
+            $query = "INSERT INTO mercadopago_settings (user_id, access_token, valor_base, desconto_3_meses, desconto_6_meses, created_at) 
+                     VALUES (?, ?, ?, ?, ?, NOW()) 
                      ON DUPLICATE KEY UPDATE 
                      access_token = VALUES(access_token),
                      valor_base = VALUES(valor_base),
@@ -30,7 +34,7 @@ switch ($action) {
             $stmt = $conn->prepare($query);
             $result = $stmt->execute([
                 $user_id,
-                $input['access_token'],
+                $input['access_token'] ?? '',
                 floatval($input['valor_base'] ?? 0),
                 floatval($input['desconto_3_meses'] ?? 0),
                 floatval($input['desconto_6_meses'] ?? 0)
@@ -48,8 +52,8 @@ switch ($action) {
         
     case 'save_whatsapp':
         try {
-            $query = "INSERT INTO whatsapp_settings (user_id, instance_name, api_key, base_url) 
-                     VALUES (?, ?, ?, ?) 
+            $query = "INSERT INTO whatsapp_settings (user_id, instance_name, api_key, base_url, created_at) 
+                     VALUES (?, ?, ?, ?, NOW()) 
                      ON DUPLICATE KEY UPDATE 
                      instance_name = VALUES(instance_name),
                      api_key = VALUES(api_key),
@@ -59,8 +63,8 @@ switch ($action) {
             $stmt = $conn->prepare($query);
             $result = $stmt->execute([
                 $user_id,
-                sanitize($input['instance_name']),
-                $input['api_key'],
+                sanitize($input['instance_name'] ?? ''),
+                $input['api_key'] ?? '',
                 $input['base_url'] ?? EVOLUTION_DEFAULT_URL
             ]);
             
@@ -76,8 +80,8 @@ switch ($action) {
         
     case 'save_automation':
         try {
-            $query = "INSERT INTO user_settings (user_id, auto_cobranca, dias_antecedencia, notification_email, notification_whatsapp, message_template) 
-                     VALUES (?, ?, ?, ?, ?, ?) 
+            $query = "INSERT INTO user_settings (user_id, auto_cobranca, dias_antecedencia, notification_email, notification_whatsapp, message_template, created_at) 
+                     VALUES (?, ?, ?, ?, ?, ?, NOW()) 
                      ON DUPLICATE KEY UPDATE 
                      auto_cobranca = VALUES(auto_cobranca),
                      dias_antecedencia = VALUES(dias_antecedencia),
@@ -106,13 +110,13 @@ switch ($action) {
         }
         break;
         
-    case 'save_preferences':
+    case 'save_preference':
         try {
-            $dark_mode = isset($input['dark_mode']) ? 1 : 0;
+            $dark_mode = isset($input['dark_mode']) && $input['dark_mode'] ? 1 : 0;
             $timezone = sanitize($input['timezone'] ?? 'America/Sao_Paulo');
             
-            $query = "INSERT INTO user_settings (user_id, dark_mode, timezone) 
-                     VALUES (?, ?, ?) 
+            $query = "INSERT INTO user_settings (user_id, dark_mode, timezone, created_at) 
+                     VALUES (?, ?, ?, NOW()) 
                      ON DUPLICATE KEY UPDATE 
                      dark_mode = VALUES(dark_mode),
                      timezone = VALUES(timezone),
