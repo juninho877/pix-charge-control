@@ -1,6 +1,6 @@
 
 <?php
-$current_user = $auth->getCurrentUser();
+// Usar dados do usuário já carregados no index.php
 ?>
 <nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm">
     <div class="container-fluid">
@@ -34,7 +34,7 @@ $current_user = $auth->getCurrentUser();
             <ul class="navbar-nav">
                 <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown">
-                        <i class="bi bi-person-circle"></i> <?php echo $current_user['name']; ?>
+                        <i class="bi bi-person-circle"></i> <?php echo htmlspecialchars($user['name'] ?? 'Usuário'); ?>
                     </a>
                     <ul class="dropdown-menu dropdown-menu-end">
                         <li><a class="dropdown-item" href="javascript:void(0)" onclick="loadPage('profile')">

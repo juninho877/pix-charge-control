@@ -14,10 +14,14 @@ $conn = $database->getConnection();
 $user = null;
 
 try {
-    $query = "SELECT u.*, us.dark_mode FROM users u LEFT JOIN user_settings us ON u.id = us.user_id WHERE u.id = ?";
+    $query = "SELECT u.*, COALESCE(us.dark_mode, 0) as dark_mode FROM users u LEFT JOIN user_settings us ON u.id = us.user_id WHERE u.id = ?";
     $stmt = $conn->prepare($query);
     $stmt->execute([$_SESSION['user_id']]);
     $user = $stmt->fetch();
+    
+    if (!$user) {
+        $user = ['name' => 'Usuário', 'dark_mode' => 0];
+    }
 } catch (Exception $e) {
     // Se houver erro, manter valores padrão
     $user = ['name' => 'Usuário', 'dark_mode' => 0];

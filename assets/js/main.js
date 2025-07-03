@@ -11,10 +11,6 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeDarkMode();
     initializeNavigation();
     initializeTooltips();
-    initializeModals();
-    
-    // Load initial page
-    loadPage('dashboard');
 });
 
 // Dark Mode Functions
@@ -114,7 +110,6 @@ function loadPage(page) {
             console.log('Página carregada com sucesso');
             if (content) {
                 content.innerHTML = html;
-                content.classList.add('fade-in');
             }
             updateActiveNavigation();
             
@@ -128,7 +123,6 @@ function loadPage(page) {
                     <div class="alert alert-danger" role="alert">
                         <i class="bi bi-exclamation-triangle"></i>
                         Erro ao carregar a página "${page}". ${error.message}
-                        <br><small>Verifique se o arquivo pages/${page}.php existe.</small>
                     </div>
                 `;
             }
@@ -139,34 +133,16 @@ function loadPage(page) {
 function initializePageScripts(page) {
     console.log('Inicializando scripts da página:', page);
     switch (page) {
-        case 'dashboard':
-            initializeDashboard();
-            break;
         case 'clients':
             initializeClients();
             break;
         case 'settings':
             initializeSettings();
             break;
-        case 'payments':
-            initializePayments();
-            break;
         case 'whatsapp':
             initializeWhatsApp();
             break;
-        case 'reports':
-            initializeReports();
-            break;
     }
-}
-
-// Dashboard functions
-function initializeDashboard() {
-    console.log('Dashboard inicializado');
-}
-
-function refreshDashboard() {
-    loadPage('dashboard');
 }
 
 // Client functions
@@ -176,14 +152,6 @@ function initializeClients() {
     const phoneInputs = document.querySelectorAll('input[name="phone"]');
     phoneInputs.forEach(input => {
         input.addEventListener('input', formatPhoneNumber);
-    });
-    
-    // Initialize date inputs with today's date
-    const dateInputs = document.querySelectorAll('input[type="date"]');
-    dateInputs.forEach(input => {
-        if (!input.value) {
-            input.value = new Date().toISOString().split('T')[0];
-        }
     });
 }
 
@@ -208,32 +176,11 @@ function formatPhoneNumber(e) {
 // Settings functions
 function initializeSettings() {
     console.log('Configurações inicializadas');
-    // Initialize form validations
-    const forms = document.querySelectorAll('form');
-    forms.forEach(form => {
-        form.addEventListener('submit', function(e) {
-            if (!form.checkValidity()) {
-                e.preventDefault();
-                e.stopPropagation();
-            }
-            form.classList.add('was-validated');
-        });
-    });
-}
-
-// Payment functions
-function initializePayments() {
-    console.log('Pagamentos inicializados');
 }
 
 // WhatsApp functions
 function initializeWhatsApp() {
     console.log('WhatsApp inicializado');
-}
-
-// Reports functions
-function initializeReports() {
-    console.log('Relatórios inicializados');
 }
 
 // Utility functions
@@ -242,21 +189,6 @@ function initializeTooltips() {
     const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
     tooltipTriggerList.map(function (tooltipTriggerEl) {
         return new bootstrap.Tooltip(tooltipTriggerEl);
-    });
-}
-
-function initializeModals() {
-    // Initialize Bootstrap modals
-    const modalElements = document.querySelectorAll('.modal');
-    modalElements.forEach(modal => {
-        modal.addEventListener('hidden.bs.modal', function () {
-            // Reset forms when modal is closed
-            const forms = modal.querySelectorAll('form');
-            forms.forEach(form => {
-                form.reset();
-                form.classList.remove('was-validated');
-            });
-        });
     });
 }
 
@@ -305,95 +237,7 @@ function showNotification(message, type = 'info', duration = 5000) {
     }, duration);
 }
 
-// Error handling
-window.addEventListener('error', function(e) {
-    console.error('JavaScript Error:', e.error);
-    showNotification('Ocorreu um erro inesperado. Tente recarregar a página.', 'danger');
-});
-
-// AJAX error handling
-function handleAjaxError(error) {
-    console.error('AJAX Error:', error);
-    showNotification('Erro de conexão. Verifique sua internet e tente novamente.', 'warning');
-}
-
-// Form utilities
-function serializeForm(form) {
-    const formData = new FormData(form);
-    const data = {};
-    
-    for (let [key, value] of formData.entries()) {
-        if (data[key]) {
-            if (Array.isArray(data[key])) {
-                data[key].push(value);
-            } else {
-                data[key] = [data[key], value];
-            }
-        } else {
-            data[key] = value;
-        }
-    }
-    
-    return data;
-}
-
-// Date utilities
-function formatDate(date, format = 'dd/mm/yyyy') {
-    const d = new Date(date);
-    const day = String(d.getDate()).padStart(2, '0');
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const year = d.getFullYear();
-    
-    switch (format) {
-        case 'dd/mm/yyyy':
-            return `${day}/${month}/${year}`;
-        case 'yyyy-mm-dd':
-            return `${year}-${month}-${day}`;
-        default:
-            return d.toLocaleDateString('pt-BR');
-    }
-}
-
-// Currency utilities
-function formatCurrency(value) {
-    return new Intl.NumberFormat('pt-BR', {
-        style: 'currency',
-        currency: 'BRL'
-    }).format(value);
-}
-
-function parseCurrency(value) {
-    return parseFloat(value.replace(/[^\d,-]/g, '').replace(',', '.'));
-}
-
-// Phone utilities
-function formatPhone(phone) {
-    const cleaned = phone.replace(/\D/g, '');
-    
-    if (cleaned.length === 11) {
-        return cleaned.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3');
-    } else if (cleaned.length === 10) {
-        return cleaned.replace(/(\d{2})(\d{4})(\d{4})/, '($1) $2-$3');
-    }
-    
-    return phone;
-}
-
-function getWhatsAppUrl(phone, message = '') {
-    const cleaned = phone.replace(/\D/g, '');
-    const formattedPhone = cleaned.startsWith('55') ? cleaned : '55' + cleaned;
-    
-    if (message) {
-        return `https://wa.me/${formattedPhone}?text=${encodeURIComponent(message)}`;
-    }
-    
-    return `https://wa.me/${formattedPhone}`;
-}
-
 // Export functions for global use
 window.loadPage = loadPage;
 window.toggleDarkMode = toggleDarkMode;
 window.showNotification = showNotification;
-window.formatCurrency = formatCurrency;
-window.formatPhone = formatPhone;
-window.getWhatsAppUrl = getWhatsAppUrl;
