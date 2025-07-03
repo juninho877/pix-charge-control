@@ -1,46 +1,42 @@
 
 <?php
-// Remover dependência problemática e usar dados do banco
 $database = new Database();
 $conn = $database->getConnection();
 
-// Buscar configurações do Mercado Pago
-$mp_data = null;
+if (!$conn) {
+    echo '<div class="alert alert-danger">Erro de conexão com o banco de dados</div>';
+    return;
+}
+
+$user_id = $_SESSION['user_id'] ?? 1;
+
+// Buscar configurações existentes
+$mp_data = [];
+$wa_data = [];
+$user_settings = [];
+
 try {
+    // Mercado Pago
     $query = "SELECT * FROM mercadopago_settings WHERE user_id = ?";
     $stmt = $conn->prepare($query);
-    $stmt->execute([$_SESSION['user_id']]);
-    $mp_data = $stmt->fetch();
-} catch (Exception $e) {
-    // Silenciar erro se tabela não existir
-}
+    $stmt->execute([$user_id]);
+    $mp_data = $stmt->fetch() ?: [];
 
-// Buscar configurações do WhatsApp
-$wa_data = null;
-try {
+    // WhatsApp
     $query = "SELECT * FROM whatsapp_settings WHERE user_id = ?";
     $stmt = $conn->prepare($query);
-    $stmt->execute([$_SESSION['user_id']]);
-    $wa_data = $stmt->fetch();
-} catch (Exception $e) {
-    // Silenciar erro se tabela não existir
-}
+    $stmt->execute([$user_id]);
+    $wa_data = $stmt->fetch() ?: [];
 
-// Buscar configurações do usuário
-$user_settings = null;
-try {
+    // Configurações do usuário
     $query = "SELECT * FROM user_settings WHERE user_id = ?";
     $stmt = $conn->prepare($query);
-    $stmt->execute([$_SESSION['user_id']]);
-    $user_settings = $stmt->fetch();
+    $stmt->execute([$user_id]);
+    $user_settings = $stmt->fetch() ?: [];
 } catch (Exception $e) {
-    // Silenciar erro se tabela não existir
+    error_log("Erro ao buscar configurações: " . $e->getMessage());
 }
 ?>
-
-<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-    <h1 class="h2">Configurações</h1>
-</div>
 
 <div class="row">
     <!-- Configurações do Mercado Pago -->
@@ -57,12 +53,7 @@ try {
                         <label for="mp_access_token" class="form-label">Access Token *</label>
                         <input type="password" class="form-control" id="mp_access_token" name="access_token" 
                                placeholder="Seu access token do Mercado Pago" 
-                               value="<?php echo $mp_data['access_token'] ?? ''; ?>" required>
-                        <div class="form-text">
-                            <a href="https://www.mercadopago.com.br/developers/panel/credentials" target="_blank">
-                                Como obter seu Access Token
-                            </a>
-                        </div>
+                               value="<?php echo htmlspecialchars($mp_data['access_token'] ?? ''); ?>" required>
                     </div>
                     
                     <div class="mb-3">
@@ -109,29 +100,27 @@ try {
                     <div class="mb-3">
                         <label for="wa_instance_name" class="form-label">Nome da Instância *</label>
                         <input type="text" class="form-control" id="wa_instance_name" name="instance_name" 
-                               placeholder="ex: minha-empresa" value="<?php echo $wa_data['instance_name'] ?? ''; ?>" required>
+                               placeholder="ex: minha-empresa" value="<?php echo htmlspecialchars($wa_data['instance_name'] ?? ''); ?>" required>
                     </div>
                     
                     <div class="mb-3">
                         <label for="wa_api_key" class="form-label">API Key *</label>
                         <input type="password" class="form-control" id="wa_api_key" name="api_key" 
-                               placeholder="Sua API Key da Evolution" value="<?php echo $wa_data['api_key'] ?? ''; ?>" required>
+                               placeholder="Sua API Key da Evolution" value="<?php echo htmlspecialchars($wa_data['api_key'] ?? ''); ?>" required>
                     </div>
                     
                     <div class="mb-3">
                         <label for="wa_base_url" class="form-label">URL Base</label>
                         <input type="url" class="form-control" id="wa_base_url" name="base_url" 
-                               value="<?php echo $wa_data['base_url'] ?? 'https://evov2.duckdns.org/'; ?>">
+                               value="<?php echo htmlspecialchars($wa_data['base_url'] ?? 'https://evov2.duckdns.org/'); ?>">
                     </div>
                     
-                    <div class="d-grid gap-2">
-                        <button type="submit" class="btn btn-success">
-                            <i class="bi bi-check"></i> Salvar e Conectar
-                        </button>
-                        <button type="button" class="btn btn-outline-info" onclick="generateQRCode()">
-                            <i class="bi bi-qr-code"></i> Gerar QR Code
-                        </button>
-                    </div>
+                    <button type="submit" class="btn btn-success">
+                        <i class="bi bi-check"></i> Salvar e Conectar
+                    </button>
+                    <button type="button" class="btn btn-outline-info mt-2" onclick="generateQRCode()">
+                        <i class="bi bi-qr-code"></i> Gerar QR Code
+                    </button>
                 </form>
                 
                 <div id="qrCodeContainer" class="mt-3 text-center" style="display: none;">
@@ -204,53 +193,11 @@ try {
                     <div class="mb-3">
                         <label for="message_template" class="form-label">Modelo de Mensagem</label>
                         <textarea class="form-control" id="message_template" name="message_template" rows="4" 
-                                  placeholder="Olá {nome}, sua cobrança de R$ {valor} vence em {dias} dias. Acesse: {link}"><?php echo $user_settings['message_template'] ?? 'Olá {nome}, sua cobrança de R$ {valor} vence em {dias} dias. Acesse: {link}'; ?></textarea>
-                        <div class="form-text">
-                            Use as variáveis: {nome}, {valor}, {dias}, {link}, {vencimento}
-                        </div>
+                                  placeholder="Olá {nome}, sua cobrança de R$ {valor} vence em {dias} dias."><?php echo htmlspecialchars($user_settings['message_template'] ?? 'Olá {nome}, sua cobrança de R$ {valor} vence em {dias} dias.'); ?></textarea>
                     </div>
                     
                     <button type="submit" class="btn btn-info">
                         <i class="bi bi-check"></i> Salvar Configurações
-                    </button>
-                </form>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Configurações de Perfil -->
-<div class="row mt-4">
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-header">
-                <h5 class="card-title mb-0">
-                    <i class="bi bi-person text-secondary"></i> Preferências
-                </h5>
-            </div>
-            <div class="card-body">
-                <form id="preferencesForm">
-                    <div class="mb-3">
-                        <div class="form-check form-switch">
-                            <input class="form-check-input" type="checkbox" id="dark_mode" name="dark_mode" 
-                                   <?php echo ($user_settings['dark_mode'] ?? 0) ? 'checked' : ''; ?>>
-                            <label class="form-check-label" for="dark_mode">
-                                Modo escuro
-                            </label>
-                        </div>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="timezone" class="form-label">Fuso horário</label>
-                        <select class="form-select" id="timezone" name="timezone">
-                            <option value="America/Sao_Paulo" <?php echo ($user_settings['timezone'] ?? 'America/Sao_Paulo') == 'America/Sao_Paulo' ? 'selected' : ''; ?>>São Paulo (UTC-3)</option>
-                            <option value="America/Manaus" <?php echo ($user_settings['timezone'] ?? 'America/Sao_Paulo') == 'America/Manaus' ? 'selected' : ''; ?>>Manaus (UTC-4)</option>
-                            <option value="America/Rio_Branco" <?php echo ($user_settings['timezone'] ?? 'America/Sao_Paulo') == 'America/Rio_Branco' ? 'selected' : ''; ?>>Rio Branco (UTC-5)</option>
-                        </select>
-                    </div>
-                    
-                    <button type="submit" class="btn btn-secondary">
-                        <i class="bi bi-check"></i> Salvar Preferências
                     </button>
                 </form>
             </div>
@@ -276,8 +223,12 @@ document.getElementById('mercadoPagoForm').addEventListener('submit', function(e
         if (data.success) {
             showNotification('Configurações do Mercado Pago salvas com sucesso!', 'success');
         } else {
-            showNotification('Erro ao salvar configurações: ' + data.message, 'danger');
+            showNotification('Erro: ' + data.message, 'danger');
         }
+    })
+    .catch(error => {
+        showNotification('Erro ao salvar configurações', 'danger');
+        console.error('Erro:', error);
     });
 });
 
@@ -298,8 +249,12 @@ document.getElementById('whatsappForm').addEventListener('submit', function(e) {
         if (data.success) {
             showNotification('Configurações do WhatsApp salvas com sucesso!', 'success');
         } else {
-            showNotification('Erro ao salvar configurações: ' + data.message, 'danger');
+            showNotification('Erro: ' + data.message, 'danger');
         }
+    })
+    .catch(error => {
+        showNotification('Erro ao salvar configurações', 'danger');
+        console.error('Erro:', error);
     });
 });
 
@@ -320,38 +275,12 @@ document.getElementById('automationForm').addEventListener('submit', function(e)
         if (data.success) {
             showNotification('Configurações de automação salvas com sucesso!', 'success');
         } else {
-            showNotification('Erro ao salvar configurações: ' + data.message, 'danger');
+            showNotification('Erro: ' + data.message, 'danger');
         }
-    });
-});
-
-// Formulário Preferências
-document.getElementById('preferencesForm').addEventListener('submit', function(e) {
-    e.preventDefault();
-    const formData = new FormData(this);
-    const data = Object.fromEntries(formData);
-    data.action = 'save_preferences';
-    
-    fetch('api/settings.php', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(data)
     })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            showNotification('Preferências salvas com sucesso!', 'success');
-            if (data.dark_mode !== undefined) {
-                // Atualizar modo escuro em tempo real
-                if (data.dark_mode) {
-                    document.body.setAttribute('data-bs-theme', 'dark');
-                } else {
-                    document.body.removeAttribute('data-bs-theme');
-                }
-            }
-        } else {
-            showNotification('Erro ao salvar preferências: ' + data.message, 'danger');
-        }
+    .catch(error => {
+        showNotification('Erro ao salvar configurações', 'danger');
+        console.error('Erro:', error);
     });
 });
 
@@ -366,6 +295,10 @@ function generateQRCode() {
             } else {
                 showNotification('Erro ao gerar QR Code: ' + data.message, 'danger');
             }
+        })
+        .catch(error => {
+            showNotification('Erro ao gerar QR Code', 'danger');
+            console.error('Erro:', error);
         });
 }
 </script>

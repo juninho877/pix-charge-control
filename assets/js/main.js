@@ -1,7 +1,5 @@
 
 // Sistema SaaS - JavaScript Principal
-
-// Variáveis globais
 let currentPage = 'dashboard';
 let darkMode = localStorage.getItem('darkMode') === 'true';
 
@@ -93,7 +91,7 @@ function loadPage(page) {
     fetch(`pages/${page}.php`)
         .then(response => {
             if (!response.ok) {
-                throw new Error(`Erro ${response.status}: Página não encontrada`);
+                throw new Error(`Erro ${response.status}: ${response.statusText}`);
             }
             return response.text();
         })
@@ -138,49 +136,58 @@ function initializePageScripts(page) {
         case 'clients':
             initializeClients();
             break;
-        case 'settings':
-            initializeSettings();
+        case 'payments':
+            initializePayments();
             break;
         case 'whatsapp':
             initializeWhatsApp();
             break;
+        case 'automation':
+            initializeAutomation();
+            break;
+        case 'reports':
+            initializeReports();
+            break;
+        case 'settings':
+            initializeSettings();
+            break;
+        case 'profile':
+            initializeProfile();
+            break;
     }
 }
 
-// Funções específicas dos clientes
+// Funções específicas de cada página
 function initializeClients() {
-    // Formatar números de telefone
-    const phoneInputs = document.querySelectorAll('input[type="tel"], input[name*="phone"]');
-    phoneInputs.forEach(input => {
-        input.addEventListener('input', function(e) {
-            let value = e.target.value.replace(/\D/g, '');
-            if (value.length <= 11) {
-                if (value.length <= 2) {
-                    value = value.replace(/(\d{0,2})/, '($1');
-                } else if (value.length <= 6) {
-                    value = value.replace(/(\d{2})(\d{0,4})/, '($1) $2');
-                } else if (value.length <= 10) {
-                    value = value.replace(/(\d{2})(\d{4})(\d{0,4})/, '($1) $2-$3');
-                } else {
-                    value = value.replace(/(\d{2})(\d{5})(\d{0,4})/, '($1) $2-$3');
-                }
-            }
-            e.target.value = value;
-        });
-    });
+    console.log('Clientes inicializados');
 }
 
-function initializeSettings() {
-    console.log('Configurações inicializadas');
+function initializePayments() {
+    console.log('Pagamentos inicializados');
 }
 
 function initializeWhatsApp() {
     console.log('WhatsApp inicializado');
 }
 
+function initializeAutomation() {
+    console.log('Automação inicializada');
+}
+
+function initializeReports() {
+    console.log('Relatórios inicializados');
+}
+
+function initializeSettings() {
+    console.log('Configurações inicializadas');
+}
+
+function initializeProfile() {
+    console.log('Perfil inicializado');
+}
+
 // Funções utilitárias
 function initializeTooltips() {
-    // Inicializar tooltips do Bootstrap
     const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
     tooltipTriggerList.map(function (tooltipTriggerEl) {
         return new bootstrap.Tooltip(tooltipTriggerEl);
@@ -192,7 +199,7 @@ function showNotification(message, type = 'info', duration = 5000) {
     notification.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
     notification.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
     notification.innerHTML = `
-        <i class="bi bi-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-triangle' : 'info-circle'}"></i>
+        <i class="bi bi-${type === 'success' ? 'check-circle' : type === 'danger' ? 'exclamation-triangle' : 'info-circle'}"></i>
         ${message}
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     `;
