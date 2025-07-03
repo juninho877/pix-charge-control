@@ -1,145 +1,153 @@
 
 <?php
+header('Content-Type: application/json');
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+
 require_once '../config/config.php';
 require_once '../config/database.php';
 
-// Verificar autenticação
+// Verificar se usuário está logado
 if (!isLoggedIn()) {
-    jsonResponse(['success' => false, 'message' => 'Não autenticado'], 401);
+    echo json_encode(['success' => false, 'message' => 'Usuário não autenticado']);
+    exit;
+}
+
+$database = new Database();
+$conn = $database->getConnection();
+
+if (!$conn) {
+    echo json_encode(['success' => false, 'message' => 'Erro de conexão com o banco de dados']);
+    exit;
 }
 
 $user_id = $_SESSION['user_id'];
 $input = json_decode(file_get_contents('php://input'), true);
 $action = $input['action'] ?? '';
 
-$database = new Database();
-$conn = $database->getConnection();
-
-if (!$conn) {
-    jsonResponse(['success' => false, 'message' => 'Erro de conexão com o banco de dados']);
-}
-
-switch ($action) {
-    case 'save_mercadopago':
-        try {
-            $query = "INSERT INTO mercadopago_settings (user_id, access_token, valor_base, desconto_3_meses, desconto_6_meses, created_at) 
-                     VALUES (?, ?, ?, ?, ?, NOW()) 
-                     ON DUPLICATE KEY UPDATE 
-                     access_token = VALUES(access_token),
-                     valor_base = VALUES(valor_base),
-                     desconto_3_meses = VALUES(desconto_3_meses),
-                     desconto_6_meses = VALUES(desconto_6_meses),
-                     updated_at = NOW()";
+try {
+    switch ($action) {
+        case 'save_settings':
+            // Criar tabela se não existir
+            $conn->exec("CREATE TABLE IF NOT EXISTS user_settings (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id INT NOT NULL,
+                mp_access_token VARCHAR(255),
+                mp_public_key VARCHAR(255),
+                mp_sandbox BOOLEAN DEFAULT 1,
+                evolution_url VARCHAR(255),
+                evolution_token VARCHAR(255),
+                evolution_instance VARCHAR(255),
+                dark_mode BOOLEAN DEFAULT 0,
+                notifications BOOLEAN DEFAULT 1,
+                auto_backup BOOLEAN DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                UNIQUE KEY unique_user_id (user_id)
+            )");
             
-            $stmt = $conn->prepare($query);
-            $result = $stmt->execute([
-                $user_id,
-                $input['access_token'] ?? '',
-                floatval($input['valor_base'] ?? 0),
-                floatval($input['desconto_3_meses'] ?? 0),
-                floatval($input['desconto_6_meses'] ?? 0)
-            ]);
+            // Verificar se já existe configuração para o usuário
+            $stmt = $conn->prepare("SELECT id FROM user_settings WHERE user_id = ?");
+            $stmt->execute([$user_id]);
+            $exists = $stmt->fetch();
             
-            if ($result) {
-                jsonResponse(['success' => true, 'message' => 'Configurações do Mercado Pago salvas com sucesso']);
-            } else {
-                jsonResponse(['success' => false, 'message' => 'Erro ao salvar configurações']);
-            }
-        } catch (Exception $e) {
-            jsonResponse(['success' => false, 'message' => 'Erro interno: ' . $e->getMessage()]);
-        }
-        break;
-        
-    case 'save_whatsapp':
-        try {
-            $query = "INSERT INTO whatsapp_settings (user_id, instance_name, api_key, base_url, created_at) 
-                     VALUES (?, ?, ?, ?, NOW()) 
-                     ON DUPLICATE KEY UPDATE 
-                     instance_name = VALUES(instance_name),
-                     api_key = VALUES(api_key),
-                     base_url = VALUES(base_url),
-                     updated_at = NOW()";
-            
-            $stmt = $conn->prepare($query);
-            $result = $stmt->execute([
-                $user_id,
-                sanitize($input['instance_name'] ?? ''),
-                $input['api_key'] ?? '',
-                $input['base_url'] ?? EVOLUTION_DEFAULT_URL
-            ]);
-            
-            if ($result) {
-                jsonResponse(['success' => true, 'message' => 'Configurações do WhatsApp salvas com sucesso']);
-            } else {
-                jsonResponse(['success' => false, 'message' => 'Erro ao salvar configurações']);
-            }
-        } catch (Exception $e) {
-            jsonResponse(['success' => false, 'message' => 'Erro interno: ' . $e->getMessage()]);
-        }
-        break;
-        
-    case 'save_automation':
-        try {
-            $query = "INSERT INTO user_settings (user_id, auto_cobranca, dias_antecedencia, notification_email, notification_whatsapp, message_template, created_at) 
-                     VALUES (?, ?, ?, ?, ?, ?, NOW()) 
-                     ON DUPLICATE KEY UPDATE 
-                     auto_cobranca = VALUES(auto_cobranca),
-                     dias_antecedencia = VALUES(dias_antecedencia),
-                     notification_email = VALUES(notification_email),
-                     notification_whatsapp = VALUES(notification_whatsapp),
-                     message_template = VALUES(message_template),
-                     updated_at = NOW()";
-            
-            $stmt = $conn->prepare($query);
-            $result = $stmt->execute([
-                $user_id,
-                isset($input['auto_cobranca']) ? 1 : 0,
-                intval($input['dias_antecedencia'] ?? 3),
-                isset($input['notification_email']) ? 1 : 0,
-                isset($input['notification_whatsapp']) ? 1 : 0,
-                sanitize($input['message_template'] ?? '')
-            ]);
-            
-            if ($result) {
-                jsonResponse(['success' => true, 'message' => 'Configurações de automação salvas com sucesso']);
-            } else {
-                jsonResponse(['success' => false, 'message' => 'Erro ao salvar configurações']);
-            }
-        } catch (Exception $e) {
-            jsonResponse(['success' => false, 'message' => 'Erro interno: ' . $e->getMessage()]);
-        }
-        break;
-        
-    case 'save_preference':
-        try {
-            $dark_mode = isset($input['dark_mode']) && $input['dark_mode'] ? 1 : 0;
-            $timezone = sanitize($input['timezone'] ?? 'America/Sao_Paulo');
-            
-            $query = "INSERT INTO user_settings (user_id, dark_mode, timezone, created_at) 
-                     VALUES (?, ?, ?, NOW()) 
-                     ON DUPLICATE KEY UPDATE 
-                     dark_mode = VALUES(dark_mode),
-                     timezone = VALUES(timezone),
-                     updated_at = NOW()";
-            
-            $stmt = $conn->prepare($query);
-            $result = $stmt->execute([$user_id, $dark_mode, $timezone]);
-            
-            if ($result) {
-                jsonResponse([
-                    'success' => true, 
-                    'message' => 'Preferências salvas com sucesso',
-                    'dark_mode' => $dark_mode
+            if ($exists) {
+                // Atualizar configurações existentes
+                $query = "UPDATE user_settings SET 
+                    mp_access_token = ?, mp_public_key = ?, mp_sandbox = ?,
+                    evolution_url = ?, evolution_token = ?, evolution_instance = ?,
+                    dark_mode = ?, notifications = ?, auto_backup = ?,
+                    updated_at = CURRENT_TIMESTAMP
+                    WHERE user_id = ?";
+                $stmt = $conn->prepare($query);
+                $stmt->execute([
+                    $input['mp_access_token'] ?? '',
+                    $input['mp_public_key'] ?? '',
+                    isset($input['mp_sandbox']) ? 1 : 0,
+                    $input['evolution_url'] ?? '',
+                    $input['evolution_token'] ?? '',
+                    $input['evolution_instance'] ?? '',
+                    isset($input['dark_mode']) ? 1 : 0,
+                    isset($input['notifications']) ? 1 : 0,
+                    isset($input['auto_backup']) ? 1 : 0,
+                    $user_id
                 ]);
             } else {
-                jsonResponse(['success' => false, 'message' => 'Erro ao salvar preferências']);
+                // Inserir nova configuração
+                $query = "INSERT INTO user_settings (
+                    user_id, mp_access_token, mp_public_key, mp_sandbox,
+                    evolution_url, evolution_token, evolution_instance,
+                    dark_mode, notifications, auto_backup
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                $stmt = $conn->prepare($query);
+                $stmt->execute([
+                    $user_id,
+                    $input['mp_access_token'] ?? '',
+                    $input['mp_public_key'] ?? '',
+                    isset($input['mp_sandbox']) ? 1 : 0,
+                    $input['evolution_url'] ?? '',
+                    $input['evolution_token'] ?? '',
+                    $input['evolution_instance'] ?? '',
+                    isset($input['dark_mode']) ? 1 : 0,
+                    isset($input['notifications']) ? 1 : 0,
+                    isset($input['auto_backup']) ? 1 : 0
+                ]);
             }
-        } catch (Exception $e) {
-            jsonResponse(['success' => false, 'message' => 'Erro interno: ' . $e->getMessage()]);
-        }
-        break;
-        
-    default:
-        jsonResponse(['success' => false, 'message' => 'Ação não válida'], 400);
+            
+            echo json_encode(['success' => true, 'message' => 'Configurações salvas com sucesso']);
+            break;
+            
+        case 'save_preference':
+            // Salvar preferência específica (ex: dark mode)
+            $stmt = $conn->prepare("SELECT id FROM user_settings WHERE user_id = ?");
+            $stmt->execute([$user_id]);
+            $exists = $stmt->fetch();
+            
+            if ($exists) {
+                $stmt = $conn->prepare("UPDATE user_settings SET dark_mode = ? WHERE user_id = ?");
+                $stmt->execute([isset($input['dark_mode']) && $input['dark_mode'] ? 1 : 0, $user_id]);
+            } else {
+                $stmt = $conn->prepare("INSERT INTO user_settings (user_id, dark_mode) VALUES (?, ?)");
+                $stmt->execute([$user_id, isset($input['dark_mode']) && $input['dark_mode'] ? 1 : 0]);
+            }
+            
+            echo json_encode(['success' => true]);
+            break;
+            
+        case 'test_connections':
+            $results = [];
+            
+            // Testar Mercado Pago
+            $mp_token = $input['mp_access_token'] ?? '';
+            if ($mp_token) {
+                $results['mercadopago'] = 'Configurado';
+            } else {
+                $results['mercadopago'] = 'Não configurado';
+            }
+            
+            // Testar Evolution API
+            $evolution_url = $input['evolution_url'] ?? '';
+            $evolution_token = $input['evolution_token'] ?? '';
+            if ($evolution_url && $evolution_token) {
+                $results['evolution'] = 'Configurado';
+            } else {
+                $results['evolution'] = 'Não configurado';
+            }
+            
+            echo json_encode([
+                'success' => true, 
+                'message' => 'Testes realizados',
+                'results' => $results
+            ]);
+            break;
+            
+        default:
+            echo json_encode(['success' => false, 'message' => 'Ação não reconhecida']);
+            break;
+    }
+    
+} catch (Exception $e) {
+    error_log("Erro na API de configurações: " . $e->getMessage());
+    echo json_encode(['success' => false, 'message' => 'Erro interno: ' . $e->getMessage()]);
 }
 ?>

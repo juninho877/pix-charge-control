@@ -8,6 +8,14 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log('Sistema inicializado');
     initializeDarkMode();
     initializeTooltips();
+    
+    // Verificar se há uma página específica na URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const page = urlParams.get('page');
+    if (page) {
+        currentPage = page;
+        updateActiveNavigation();
+    }
 });
 
 // Funções de Dark Mode
@@ -87,6 +95,10 @@ function loadPage(page) {
         mainTitle.textContent = titles[page] || 'Dashboard';
     }
     
+    // Atualizar URL sem recarregar a página
+    const newUrl = window.location.pathname + '?page=' + page;
+    window.history.pushState({page: page}, '', newUrl);
+    
     // Carregar conteúdo da página
     fetch(`pages/${page}.php`)
         .then(response => {
@@ -105,7 +117,11 @@ function loadPage(page) {
             const scripts = content.querySelectorAll('script');
             scripts.forEach(script => {
                 if (script.innerHTML) {
-                    eval(script.innerHTML);
+                    try {
+                        eval(script.innerHTML);
+                    } catch (error) {
+                        console.error('Erro ao executar script:', error);
+                    }
                 }
             });
         })
@@ -118,6 +134,7 @@ function loadPage(page) {
                         <div>
                             <strong>Erro!</strong> Não foi possível carregar a página "${page}".
                             <br><small>${error.message}</small>
+                            <br><button class="btn btn-sm btn-primary mt-2" onclick="loadPage('${page}')">Tentar Novamente</button>
                         </div>
                     </div>
                 `;
@@ -163,6 +180,14 @@ function showNotification(message, type = 'info', duration = 5000) {
         }
     }, duration);
 }
+
+// Lidar com navegação do navegador
+window.addEventListener('popstate', function(event) {
+    if (event.state && event.state.page) {
+        currentPage = event.state.page;
+        loadPage(currentPage);
+    }
+});
 
 // Exportar funções globais
 window.loadPage = loadPage;

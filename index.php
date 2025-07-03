@@ -70,7 +70,17 @@ if ($conn) {
 
                 <!-- Dashboard Content -->
                 <div id="dashboard-content">
-                    <?php include 'pages/dashboard.php'; ?>
+                    <?php 
+                    // Carregar página inicial
+                    $page = $_GET['page'] ?? 'dashboard';
+                    $page_file = "pages/" . $page . ".php";
+                    
+                    if (file_exists($page_file)) {
+                        include $page_file;
+                    } else {
+                        include 'pages/dashboard.php';
+                    }
+                    ?>
                 </div>
             </main>
         </div>
